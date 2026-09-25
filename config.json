@@ -1,0 +1,1 @@
+{"entities":{"enemy":{"color":[0,0,255],"hsv_lower":[0,0,0],"hsv_upper":[179,255,255],"min_area":300},"health_bar":{"color":[255,255,0],"hsv_lower":[0,0,0],"hsv_upper":[179,255,255],"min_area":80},"player":{"color":[0,255,0],"hsv_lower":[0,0,0],"hsv_upper":[179,255,255],"min_area":300}},"region":null,"source":"mss"}
