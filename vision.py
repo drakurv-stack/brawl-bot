@@ -172,6 +172,20 @@ class Tracker:
         return [dict(t) for t in self._tracks if t["hits"] >= self.min_hits]
 
 
+def median_hsv(hsv, cx, cy, radius=2):
+    """Median HSV of a small patch around (cx, cy).
+
+    Diagnostic for calibration: prints what a click actually grabbed, so a
+    bad sample (clicked dirt instead of the red name tag) is obvious from
+    the numbers instead of a mysterious all-white mask.
+    """
+    h, w = hsv.shape[:2]
+    x0, x1 = max(0, cx - radius), min(w, cx + radius + 1)
+    y0, y1 = max(0, cy - radius), min(h, cy + radius + 1)
+    patch = hsv[y0:y1, x0:x1].reshape(-1, 3).astype(np.float32)
+    return np.median(patch, axis=0).astype(int).tolist()
+
+
 def sample_hsv_range(hsv, cx, cy, radius=2):
     """Sample a patch around (cx, cy); return (lower, upper) HSV bounds.
 

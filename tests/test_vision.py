@@ -12,7 +12,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from vision import (Tracker, detect_entities, draw_detections, find_blobs,  # noqa: E402
-                    hsv_mask, sample_hsv_range)
+                    hsv_mask, median_hsv, sample_hsv_range)
 
 
 def tbox(cx, cy, w=40, h=40):
@@ -101,6 +101,10 @@ def main():
                 lo[0] <= 0 <= hi[0])
     ok &= check("thin red line: saturation window covers vivid red",
                 lo[1] <= 220 <= hi[1])
+
+    # --- median_hsv diagnostic reads the clicked color back ---
+    mh = median_hsv(solid_hsv(60, 200, 200), 5, 5)
+    ok &= check("median_hsv reads solid color", mh == [60, 200, 200])
 
     # --- aspect filter: health bars are wide, bushes are not ---
     img = np.zeros((200, 400, 3), dtype=np.uint8)

@@ -13,7 +13,7 @@ import cv2
 
 from capture import ScreenCapture, preview_position, preview_to_frame
 from instance import single_instance
-from vision import hsv_mask, sample_hsv_range
+from vision import hsv_mask, median_hsv, sample_hsv_range
 
 
 def main():
@@ -44,7 +44,13 @@ def main():
         lo, hi = sample_hsv_range(hsv, fx, fy)
         entities[name]["hsv_lower"] = lo
         entities[name]["hsv_upper"] = hi
-        print(f"[{name}] sampled HSV range {lo} -> {hi}")
+        med = median_hsv(hsv, fx, fy)
+        print(f"[{name}] clicked HSV ~({med[0]}, {med[1]}, {med[2]}), "
+              f"range {lo} -> {hi}")
+        if name == "enemy" and med[1] < 120:
+            print("  ^ not vivid red — you probably missed the name text.")
+            print("    click the MIDDLE of the red name above an enemy, "
+                  "then press m to check.")
 
     cv2.namedWindow("calibrate", cv2.WINDOW_NORMAL)
     cv2.resizeWindow("calibrate", pw, ph)
