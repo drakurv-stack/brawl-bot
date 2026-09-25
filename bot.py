@@ -24,7 +24,7 @@ import cv2
 from capture import ScreenCapture, preview_position
 from control import Controller, focus_game
 from instance import single_instance
-from vision import detect_entities, draw_detections, is_above
+from vision import Tracker, detect_entities, draw_detections, is_above
 
 
 def estimate_hp(detections, player, state):
@@ -105,6 +105,7 @@ def main():
     cv2.moveWindow(name, px, py)
 
     state, last_shot = {}, 0.0
+    trackers = {name: Tracker() for name in cfg["entities"]}
     try:
         with Controller() as ctl:
             while True:
@@ -113,7 +114,9 @@ def main():
                     print("lost the feed — quitting")
                     break
                 h, w = frame.shape[:2]
-                det = detect_entities(frame, cfg["entities"])
+                raw = detect_entities(frame, cfg["entities"])
+                det = {name: trackers[name].update(boxes)
+                       for name, boxes in raw.items()}
                 action = decide(det, w, h, state, attack_range, retreat_hp)
 
                 if action["move"]:

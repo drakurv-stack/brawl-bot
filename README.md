@@ -43,6 +43,12 @@ python calibrate.py
 python visualize.py
 ```
 
+Detections run through a per-entity **Tracker** (centroid tracking with
+exponential moving-average smoothing): a box must persist for 3 frames
+before it's believed (kills flicker), coasts through 5 missed frames, and
+never jitters. Boxes are labeled `name#id` — the id sticks to the same
+brawler while it's visible.
+
 `calibrate.py` keys: `1`/`2`/`3` select entity, **click** the thing on screen
 to sample its color, `m` toggles a mask view (white = detected — if the
 whole screen goes white, re-click the center of a solid-colored part),

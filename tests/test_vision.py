@@ -11,8 +11,13 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from vision import (detect_entities, find_blobs, hsv_mask,  # noqa: E402
+from vision import (Tracker, detect_entities, find_blobs, hsv_mask,  # noqa: E402
                     sample_hsv_range)
+
+
+def tbox(cx, cy, w=40, h=40):
+    return {"x": cx - w / 2, "y": cy - h / 2, "w": w, "h": h,
+            "area": w * h, "cx": float(cx), "cy": float(cy)}
 
 
 def check(name, cond):
@@ -131,6 +136,37 @@ def main():
     det3 = detect_entities(scene2, ents)
     ok &= check('"above": null disables anchor check',
                 len(det3["health_bar"]) == 2)
+
+    # --- Tracker: flicker suppression (needs min_hits consecutive frames) ---
+    tr = Tracker()
+    ok &= check("tentative track not reported (1 hit)",
+                tr.update([tbox(100, 100)]) == [])
+    ok &= check("tentative track not reported (2 hits)",
+                tr.update([tbox(102, 99)]) == [])
+    out = tr.update([tbox(101, 101)])
+    ok &= check("confirmed after 3 hits", len(out) == 1)
+
+    # --- Tracker: jitter smoothing (EMA, not raw jumps) ---
+    tr = Tracker(min_hits=1, smooth=0.5)
+    tr.update([tbox(100, 100)])
+    out = tr.update([tbox(120, 100)])  # raw jumps +20...
+    ok &= check("EMA halves the jump", abs(out[0]["cx"] - 110) < 1e-9)
+
+    # --- Tracker: coasts through brief misses, then dies ---
+    tr = Tracker(min_hits=1, max_misses=2)
+    tr.update([tbox(100, 100)])
+    ok &= check("survives 1 missed frame", len(tr.update([])) == 1)
+    ok &= check("survives 2 missed frames", len(tr.update([])) == 1)
+    ok &= check("dies after 3 missed frames", tr.update([]) == [])
+
+    # --- Tracker: two objects keep separate stable ids ---
+    tr = Tracker(min_hits=2)
+    tr.update([tbox(100, 100), tbox(300, 300)])
+    out = tr.update([tbox(105, 102), tbox(295, 303)])
+    ids = sorted(t["id"] for t in out)
+    ok &= check("two tracks, stable ids", ids == [0, 1])
+    left = next(t for t in out if t["id"] == 0)
+    ok &= check("tracks follow their object", left["cx"] < 200)
 
     print("ALL TESTS PASSED" if ok else "TESTS FAILED")
     return ok

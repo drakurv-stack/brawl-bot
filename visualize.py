@@ -10,7 +10,7 @@ import cv2
 
 from capture import ScreenCapture, preview_position
 from instance import single_instance
-from vision import detect_entities, draw_detections
+from vision import Tracker, detect_entities, draw_detections
 
 
 def main():
@@ -28,12 +28,17 @@ def main():
     px, py = preview_position(cap.effective_region, cap.screen_size, pw, ph)
     cv2.moveWindow("brawl-bot vision (Q to quit)", px, py)
     prev = time.time()
+    # One tracker per entity: boxes must persist across frames (min_hits)
+    # and are EMA-smoothed, so the overlay stops flickering/jittering.
+    trackers = {name: Tracker() for name in entities}
     while True:
         frame = cap.grab()
         if frame is None:
             print("no frame — is the game/emulator visible?")
             break
-        detections = detect_entities(frame, entities)
+        raw = detect_entities(frame, entities)
+        detections = {name: trackers[name].update(boxes)
+                      for name, boxes in raw.items()}
         vis = draw_detections(frame, detections, entities)
 
         now = time.time()

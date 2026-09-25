@@ -95,10 +95,71 @@ def draw_detections(bgr, detections, entities):
         color = tuple(int(c) for c in entities[name].get("color", (0, 255, 0)))
         for b in boxes:
             x, y, w, h = b["x"], b["y"], b["w"], b["h"]
+            label = f"{name}#{b['id']}" if "id" in b else name
             cv2.rectangle(vis, (x, y), (x + w, y + h), color, 2)
-            cv2.putText(vis, name, (x, y - 6), cv2.FONT_HERSHEY_SIMPLEX,
+            cv2.putText(vis, label, (x, y - 6), cv2.FONT_HERSHEY_SIMPLEX,
                         0.6, color, 2)
     return vis
+
+
+class Tracker:
+    """Kill the shakes: remember boxes across frames.
+
+    Raw color detection has no memory — a box flickers, jumps a few pixels,
+    or vanishes for a frame whenever the mask wobbles. The tracker fixes it:
+      * a box must match `min_hits` frames in a row before we report it
+        (sporadic false positives never surface),
+      * a track coasts through `max_misses` unmatched frames (a blink of
+        occlusion doesn't kill it),
+      * reported centers/sizes are an exponential moving average
+        (no more jitter).
+
+    Usage: one Tracker per entity; call update() with each frame's raw
+    boxes. Returned dicts look like boxes plus an "id" that persists while
+    the track lives.
+    """
+
+    def __init__(self, min_hits=3, max_misses=5, smooth=0.6, max_dist=60):
+        self.min_hits = min_hits
+        self.max_misses = max_misses
+        self.smooth = smooth
+        self.max_dist = max_dist
+        self._tracks = []
+        self._next_id = 0
+
+    def update(self, boxes):
+        # Greedy nearest-neighbor: each track claims its closest unmatched
+        # box within max_dist.
+        unmatched = list(boxes)
+        for t in self._tracks:
+            best, best_d = None, self.max_dist
+            for b in unmatched:
+                d = ((b["cx"] - t["cx"]) ** 2 + (b["cy"] - t["cy"]) ** 2) ** 0.5
+                if d < best_d:
+                    best, best_d = b, d
+            if best is None:
+                t["misses"] += 1
+                continue
+            unmatched.remove(best)
+            s = self.smooth
+            t["cx"] = s * t["cx"] + (1 - s) * best["cx"]
+            t["cy"] = s * t["cy"] + (1 - s) * best["cy"]
+            t["w"] = s * t["w"] + (1 - s) * best["w"]
+            t["h"] = s * t["h"] + (1 - s) * best["h"]
+            t["x"] = t["cx"] - t["w"] / 2
+            t["y"] = t["cy"] - t["h"] / 2
+            t["area"] = t["w"] * t["h"]
+            t["hits"] += 1
+            t["misses"] = 0
+        for b in unmatched:  # leftovers start tentative tracks
+            self._tracks.append({"id": self._next_id, "cx": b["cx"],
+                                 "cy": b["cy"], "w": b["w"], "h": b["h"],
+                                 "x": b["x"], "y": b["y"], "area": b["area"],
+                                 "hits": 1, "misses": 0})
+            self._next_id += 1
+        self._tracks = [t for t in self._tracks
+                        if t["misses"] <= self.max_misses]
+        return [dict(t) for t in self._tracks if t["hits"] >= self.min_hits]
 
 
 def sample_hsv_range(hsv, cx, cy, radius=5):
