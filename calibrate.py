@@ -50,6 +50,14 @@ def main():
         vis = frame.copy()
         cv2.putText(vis, f"sampling: {names[selected]}  (s=save, ESC=quit)",
                     (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+        uncalibrated = all(
+            e["hsv_lower"] == [0, 0, 0] and e["hsv_upper"] == [179, 255, 255]
+            for e in entities.values())
+        if uncalibrated:
+            cv2.putText(vis, "No game visible? Open Brawl Stars FIRST, then run me.",
+                        (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+            cv2.putText(vis, "Then click your brawler to teach me its color.",
+                        (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
         cv2.imshow("calibrate", vis)
         key = cv2.waitKey(30) & 0xFF
         if key == 27:
