@@ -53,6 +53,25 @@ keep the emulator in front so the game is visible. Set an explicit
 instead. The preview window parks itself outside the captured area so it
 can't photograph itself.
 
+## Milestone 2 — make it move (you are here)
+
+One-time setup, in LDPlayer:
+1. Open the keymapper (keyboard icon in the right toolbar).
+2. Bind **W/A/S/D** to the movement joystick. Note which key is Attack
+   (default it to `J` in `control.py` if yours differs).
+
+Then prove the script can drive the game:
+
+```bash
+pip install -r requirements.txt   # picks up pydirectinput
+python walk_test.py
+```
+
+Your brawler should trace a square in the Training Cave. `control.py` holds
+the `Controller` class milestone 3 will steer: `move(dx, dy)` takes a
+screen-space vector and holds the right WASD combo differentially, so keys
+never get stuck down.
+
 ## Milestones
 
 - [x] **1. See** — capture + color calibration + live detection overlay

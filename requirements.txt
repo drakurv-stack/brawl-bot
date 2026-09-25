@@ -1,3 +1,4 @@
 opencv-python
 numpy
 mss
+pydirectinput  # Windows-only: sends keystrokes to the emulator (milestone 2)
