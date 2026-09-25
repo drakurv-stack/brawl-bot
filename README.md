@@ -85,6 +85,25 @@ the `Controller` class milestone 3 will steer: `move(dx, dy)` takes a
 screen-space vector and holds the right WASD combo differentially, so keys
 never get stuck down.
 
+## Milestone 3 — the brain (built, needs a live run)
+
+`bot.py` runs the full loop: see → decide → act, every frame.
+
+- **SEEK**: no enemy in sight → drift to the middle, don't camp a corner
+- **CHASE**: enemy far → run at the nearest one
+- **ATTACK**: enemy within `attack_range_px` → plant feet and shoot
+- **RETREAT**: own HP (estimated from your floating health-bar width)
+  below `retreat_hp` → run away
+
+Tune in `config.json` under `"brain"` (all optional):
+`attack_range_px` (default 130), `retreat_hp` (0.35),
+`attack_cooldown_s` (0.9). Bind your Attack key in the emulator keymapper
+first (default `J`, change in `control.py`).
+
+```bash
+python bot.py     # Q or ESC quits; keys always release on exit
+```
+
 ## Milestones
 
 - [x] **1. See** — capture + color calibration + live detection overlay

@@ -33,7 +33,7 @@ DEFAULT_SHAPES = {
 }
 
 
-def _is_above(box, anchors):
+def is_above(box, anchors):
     """True if `box` floats just above one of the anchor boxes."""
     bottom = box["y"] + box["h"]
     for a in anchors:
@@ -84,7 +84,7 @@ def detect_entities(bgr, entities):
         above = cfg.get("above")
         if above:
             anchors = [b for n in above for b in out.get(n, [])]
-            out[name] = [b for b in out[name] if _is_above(b, anchors)]
+            out[name] = [b for b in out[name] if is_above(b, anchors)]
     return out
 
 
