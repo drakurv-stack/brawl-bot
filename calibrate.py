@@ -11,10 +11,12 @@ import json
 import cv2
 
 from capture import ScreenCapture
+from instance import single_instance
 from vision import sample_hsv_range
 
 
 def main():
+    single_instance("calibrate")
     with open("config.json") as f:
         cfg = json.load(f)
     entities = cfg["entities"]

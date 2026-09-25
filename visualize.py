@@ -9,10 +9,12 @@ import time
 import cv2
 
 from capture import ScreenCapture
+from instance import single_instance
 from vision import detect_entities, draw_detections
 
 
 def main():
+    single_instance("visualize")
     with open("config.json") as f:
         cfg = json.load(f)
     entities = cfg["entities"]
