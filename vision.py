@@ -94,7 +94,9 @@ def draw_detections(bgr, detections, entities):
     for name, boxes in detections.items():
         color = tuple(int(c) for c in entities[name].get("color", (0, 255, 0)))
         for b in boxes:
-            x, y, w, h = b["x"], b["y"], b["w"], b["h"]
+            # Tracker smoothing yields floats; OpenCV needs ints.
+            x, y = int(b["x"]), int(b["y"])
+            w, h = int(b["w"]), int(b["h"])
             label = f"{name}#{b['id']}" if "id" in b else name
             cv2.rectangle(vis, (x, y), (x + w, y + h), color, 2)
             cv2.putText(vis, label, (x, y - 6), cv2.FONT_HERSHEY_SIMPLEX,

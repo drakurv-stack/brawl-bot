@@ -11,8 +11,8 @@ import cv2
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from vision import (Tracker, detect_entities, find_blobs, hsv_mask,  # noqa: E402
-                    sample_hsv_range)
+from vision import (Tracker, detect_entities, draw_detections, find_blobs,  # noqa: E402
+                    hsv_mask, sample_hsv_range)
 
 
 def tbox(cx, cy, w=40, h=40):
@@ -167,6 +167,20 @@ def main():
     ok &= check("two tracks, stable ids", ids == [0, 1])
     left = next(t for t in out if t["id"] == 0)
     ok &= check("tracks follow their object", left["cx"] < 200)
+
+    # --- regression: draw_detections must survive float (smoothed) boxes ---
+    tr = Tracker(min_hits=1, smooth=0.5)
+    tr.update([tbox(100, 100)])
+    tracked = tr.update([tbox(103, 97)])  # EMA -> fractional coords
+    frame = np.zeros((200, 200, 3), dtype=np.uint8)
+    try:
+        vis = draw_detections(frame, {"enemy": tracked},
+                              {"enemy": {"color": [0, 0, 255]}})
+        ok &= check("draw float tracker boxes without crashing",
+                    vis.shape == frame.shape)
+    except Exception as e:  # noqa: BLE001
+        print(f"FAIL draw float tracker boxes without crashing ({e})")
+        ok = False
 
     print("ALL TESTS PASSED" if ok else "TESTS FAILED")
     return ok
