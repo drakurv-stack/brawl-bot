@@ -194,6 +194,23 @@ def median_hsv(hsv, cx, cy, radius=2):
     return np.median(patch, axis=0).astype(int).tolist()
 
 
+def hue_name(h):
+    """Rough color name for a hue value — calibration diagnostics."""
+    if h <= 10 or h >= 170:
+        return "red"
+    if h <= 25:
+        return "orange"
+    if h <= 40:
+        return "yellow"
+    if h <= 75:
+        return "green"
+    if h <= 100:
+        return "cyan"
+    if h <= 135:
+        return "blue"
+    return "purple/pink"
+
+
 def sample_hsv_range(hsv, cx, cy, radius=2):
     """Sample a patch around (cx, cy); return (lower, upper) HSV bounds.
 

@@ -12,7 +12,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from vision import (Tracker, detect_entities, draw_detections, find_blobs,  # noqa: E402
-                    hsv_mask, median_hsv, sample_hsv_range)
+                    hsv_mask, hue_name, median_hsv, sample_hsv_range)
 
 
 def tbox(cx, cy, w=40, h=40):
@@ -105,6 +105,12 @@ def main():
     # --- median_hsv diagnostic reads the clicked color back ---
     mh = median_hsv(solid_hsv(60, 200, 200), 5, 5)
     ok &= check("median_hsv reads solid color", mh == [60, 200, 200])
+
+    # --- hue_name sanity ---
+    ok &= check("hue_name buckets",
+                hue_name(0) == "red" and hue_name(178) == "red"
+                and hue_name(38) == "yellow" and hue_name(20) == "orange"
+                and hue_name(60) == "green" and hue_name(120) == "blue")
 
     # --- dilate merges fragmented text (name-tag letters) into one box ---
     tag = np.zeros((30, 120), dtype=np.uint8)
