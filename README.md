@@ -46,6 +46,13 @@ python visualize.py
 `calibrate.py` keys: `1`/`2`/`3` select entity, **click** the thing on screen
 to sample its color, `s` saves to `config.json`, `ESC` quits.
 
+Capture notes: with `"region": null` (default) the camera auto-detects your
+emulator window (LDPlayer / BlueStacks / Nox) and captures *only* that —
+keep the emulator in front so the game is visible. Set an explicit
+`{"left","top","width","height"}` in `config.json` to pin a rectangle
+instead. The preview window parks itself outside the captured area so it
+can't photograph itself.
+
 ## Milestones
 
 - [x] **1. See** — capture + color calibration + live detection overlay

@@ -10,7 +10,7 @@ import json
 
 import cv2
 
-from capture import ScreenCapture
+from capture import ScreenCapture, preview_position
 from instance import single_instance
 from vision import sample_hsv_range
 
@@ -38,6 +38,10 @@ def main():
 
     cv2.namedWindow("calibrate")
     cv2.setMouseCallback("calibrate", on_click)
+    # Park the preview outside the captured region so it can't
+    # photograph itself (the hall-of-mirrors bug).
+    px, py = preview_position(cap.effective_region, cap.screen_size)
+    cv2.moveWindow("calibrate", px, py)
     print("keys: 1..9 select entity | click samples | s save | ESC quit")
     print("entities:", {i + 1: n for i, n in enumerate(names)})
 

@@ -8,7 +8,7 @@ import time
 
 import cv2
 
-from capture import ScreenCapture
+from capture import ScreenCapture, preview_position
 from instance import single_instance
 from vision import detect_entities, draw_detections
 
@@ -20,6 +20,9 @@ def main():
     entities = cfg["entities"]
 
     cap = ScreenCapture(cfg.get("source", "mss"), cfg.get("region"))
+    cv2.namedWindow("brawl-bot vision (Q to quit)")
+    px, py = preview_position(cap.effective_region, cap.screen_size)
+    cv2.moveWindow("brawl-bot vision (Q to quit)", px, py)
     prev = time.time()
     while True:
         frame = cap.grab()
