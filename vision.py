@@ -29,11 +29,12 @@ def hsv_mask(hsv, lower, upper):
 #    sitting on trees, water, and UI — nothing to anchor them).
 #  - enemies are detected by their thin red name tags, so they get a
 #    gentler cleanup kernel (open_ksize 3): the default 5 would erase
-#    thin text strokes as "noise".
+#    thin text strokes as "noise". And dilate_ksize fuses the disconnected
+#    letters of a name tag (each tinier than min_area) into one box.
 # Set "above": null on the entity to disable the anchor check.
 DEFAULT_SHAPES = {
     "health_bar": {"min_aspect": 2.5, "above": ["player", "enemy"]},
-    "enemy": {"open_ksize": 3},
+    "enemy": {"open_ksize": 3, "dilate_ksize": 7},
 }
 
 
@@ -49,15 +50,21 @@ def is_above(box, anchors):
 
 
 def find_blobs(mask, min_area=200, min_aspect=None, max_aspect=None,
-               open_ksize=5):
+               open_ksize=5, dilate_ksize=0):
     """Turn a binary mask into a list of boxes, biggest first.
 
     min_aspect/max_aspect filter on width/height (health bars are wide).
     open_ksize is the morphological cleanup kernel: 5 kills speckle noise
     but also erases THIN targets (red name tags), so thin entities use 3.
+    dilate_ksize merges nearby fragments AFTER cleanup: a name tag is
+    disconnected letters, each tinier than min_area — dilation fuses them
+    into one box instead of discarding every letter as noise.
     """
     kernel = np.ones((open_ksize, open_ksize), np.uint8)
     cleaned = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    if dilate_ksize > 1:
+        dkernel = np.ones((dilate_ksize, dilate_ksize), np.uint8)
+        cleaned = cv2.dilate(cleaned, dkernel)
     contours, _ = cv2.findContours(
         cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes = []
@@ -86,7 +93,8 @@ def detect_entities(bgr, entities):
         mask = hsv_mask(hsv, cfg["hsv_lower"], cfg["hsv_upper"])
         out[name] = find_blobs(mask, cfg.get("min_area", 200),
                                cfg.get("min_aspect"), cfg.get("max_aspect"),
-                               cfg.get("open_ksize", 5))
+                               cfg.get("open_ksize", 5),
+                               cfg.get("dilate_ksize", 0))
     # Structural pass: e.g. a health bar must float above a brawler.
     for name, cfg in cfgs.items():
         above = cfg.get("above")

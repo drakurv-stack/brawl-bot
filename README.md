@@ -59,7 +59,10 @@ up to half the patch can be background without poisoning the range. Two
 tips from the trenches: click the *center* of a solid-colored area, and
 for enemies sample the **red name/health bar above them** (always red)
 rather than the brawler body (every brawler is a different color) — click
-the middle of the red text itself. Enemies also get a gentler
+the middle of the red text itself. Easiest target of all: the **red ring
+under an enemy's feet** — big, vivid, unmissable. Nearby red fragments
+(name-tag letters, HP-bar chunks split by white numbers) are fused into
+one box automatically (`"dilate_ksize"`). Enemies also get a gentler
 noise-cleanup (`"open_ksize": 3` instead of 5) so thin red strokes survive
 being mistaken for speckle; tune it per entity in config.json. Health bars
 are also shape-filtered (wide and short), so bushes stop qualifying — and

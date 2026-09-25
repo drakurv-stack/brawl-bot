@@ -106,6 +106,16 @@ def main():
     mh = median_hsv(solid_hsv(60, 200, 200), 5, 5)
     ok &= check("median_hsv reads solid color", mh == [60, 200, 200])
 
+    # --- dilate merges fragmented text (name-tag letters) into one box ---
+    tag = np.zeros((30, 120), dtype=np.uint8)
+    for x in (10, 25, 40, 55, 70):  # separate "letters", 7px apart
+        tag[10:20, x:x + 8] = 255   # each 8x10=80px < min_area 200
+    plain = find_blobs(tag, min_area=200)
+    merged = find_blobs(tag, min_area=200, dilate_ksize=11)
+    ok &= check("letters discarded as noise without dilate", len(plain) == 0)
+    ok &= check("letters fuse into one box with dilate",
+                len(merged) == 1 and merged[0]["w"] > 50)
+
     # --- aspect filter: health bars are wide, bushes are not ---
     img = np.zeros((200, 400, 3), dtype=np.uint8)
     cv2.rectangle(img, (50, 50), (150, 62), (255, 255, 255), -1)  # bar: 100x12
