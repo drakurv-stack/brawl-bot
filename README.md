@@ -44,7 +44,16 @@ python visualize.py
 ```
 
 `calibrate.py` keys: `1`/`2`/`3` select entity, **click** the thing on screen
-to sample its color, `s` saves to `config.json`, `ESC` quits.
+to sample its color, `m` toggles a mask view (white = detected — if the
+whole screen goes white, re-click the center of a solid-colored part),
+`s` saves to `config.json`, `ESC` quits.
+
+Sampling takes the **median** color of the clicked patch, so up to half the
+patch can be background without poisoning the range. Two tips from the
+trenches: click the *center* of a solid-colored area, and for enemies
+sample the **red name/health bar above them** (always red) rather than the
+brawler body (every brawler is a different color). Health bars are also
+shape-filtered (wide and short), so bushes stop qualifying.
 
 Capture notes: with `"region": null` (default) the camera auto-detects your
 emulator window (LDPlayer / BlueStacks / Nox) and captures *only* that —
