@@ -2,30 +2,37 @@
 
 If you launch calibrate.py (or visualize.py) while one is already running,
 the new copy prints a message and exits instead of stacking another window.
-Stale locks from crashed runs are detected via PID and taken over.
+
+Uses a real OS file lock (msvcrt on Windows, fcntl on Unix), held open for
+the life of the process — so the OS itself releases it if we crash. No PID
+files, no stale locks, nothing to clean up.
 """
-import atexit
 import os
 import sys
 import tempfile
 
+_lock_fd = None  # kept open: closing it (or dying) releases the lock
+
 
 def single_instance(name):
+    global _lock_fd
     path = os.path.join(tempfile.gettempdir(), f"brawlbot-{name}.lock")
+    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        with os.fdopen(fd, "w") as f:
-            f.write(str(os.getpid()))
-    except FileExistsError:
-        try:
-            with open(path) as f:
-                pid = int(f.read().strip())
-            os.kill(pid, 0)  # raises OSError if that process is gone
-            print(f"'{name}' is already running (pid {pid}). "
-                  f"Press ESC in its window to close it first.")
-            sys.exit(1)
-        except (ValueError, OSError):
-            pass  # stale lock from a dead process: take over
-        with open(path, "w") as f:
-            f.write(str(os.getpid()))
-    atexit.register(lambda: os.path.exists(path) and os.remove(path))
+        if os.fstat(fd).st_size == 0:
+            os.write(fd, b"x")  # msvcrt needs at least 1 byte to lock
+    except OSError:
+        pass
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        print(f"'{name}' is already running. "
+              f"Press ESC in its window to close it first.")
+        sys.exit(1)
+    _lock_fd = fd
