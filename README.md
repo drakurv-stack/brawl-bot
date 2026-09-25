@@ -53,7 +53,11 @@ patch can be background without poisoning the range. Two tips from the
 trenches: click the *center* of a solid-colored area, and for enemies
 sample the **red name/health bar above them** (always red) rather than the
 brawler body (every brawler is a different color). Health bars are also
-shape-filtered (wide and short), so bushes stop qualifying.
+shape-filtered (wide and short), so bushes stop qualifying — and a bar only
+counts if a brawler is detected right below it (`"above": ["player",
+"enemy"]`, overridable per entity, `null` disables). Color alone can't do
+this: a sunlit bush and a health bar can be the same green, but only one
+has a brawler underneath.
 
 Capture notes: with `"region": null` (default) the camera auto-detects your
 emulator window (LDPlayer / BlueStacks / Nox) and captures *only* that —

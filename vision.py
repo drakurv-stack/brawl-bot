@@ -22,12 +22,26 @@ def hsv_mask(hsv, lower, upper):
     return cv2.inRange(hsv, lower, upper)
 
 
-# Shape hints per entity name: health bars are thin horizontal bars, so
-# anything roundish (trees, bushes, blobs) is rejected even if its color
-# is close. Merged under explicit per-entity config in detect_entities.
+# Shape + structural hints per entity name, merged UNDER explicit config
+# (so anything here can be overridden per-entity in config.json):
+#  - health bars are thin horizontal bars (min_aspect kills round bushes)...
+#  - ...and they always float directly above a brawler ("above" kills bars
+#    sitting on trees, water, and UI — nothing to anchor them).
+# Set "above": null on the entity to disable the anchor check.
 DEFAULT_SHAPES = {
-    "health_bar": {"min_aspect": 2.5},
+    "health_bar": {"min_aspect": 2.5, "above": ["player", "enemy"]},
 }
+
+
+def _is_above(box, anchors):
+    """True if `box` floats just above one of the anchor boxes."""
+    bottom = box["y"] + box["h"]
+    for a in anchors:
+        if abs(a["cx"] - box["cx"]) <= max(box["w"], 30):
+            gap = a["y"] - bottom  # anchor's top below the bar's bottom
+            if -10 <= gap <= 120:
+                return True
+    return False
 
 
 def find_blobs(mask, min_area=200, min_aspect=None, max_aspect=None):
@@ -58,12 +72,19 @@ def find_blobs(mask, min_area=200, min_aspect=None, max_aspect=None):
 def detect_entities(bgr, entities):
     """bgr frame + entity configs -> {name: [boxes]}."""
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    cfgs = {name: {**DEFAULT_SHAPES.get(name, {}), **cfg}  # explicit wins
+            for name, cfg in entities.items()}
     out = {}
-    for name, cfg in entities.items():
-        cfg = {**DEFAULT_SHAPES.get(name, {}), **cfg}  # explicit wins
+    for name, cfg in cfgs.items():
         mask = hsv_mask(hsv, cfg["hsv_lower"], cfg["hsv_upper"])
         out[name] = find_blobs(mask, cfg.get("min_area", 200),
                                cfg.get("min_aspect"), cfg.get("max_aspect"))
+    # Structural pass: e.g. a health bar must float above a brawler.
+    for name, cfg in cfgs.items():
+        above = cfg.get("above")
+        if above:
+            anchors = [b for n in above for b in out.get(n, [])]
+            out[name] = [b for b in out[name] if _is_above(b, anchors)]
     return out
 
 

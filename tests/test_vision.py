@@ -99,11 +99,38 @@ def main():
                 len(bars) == 1 and abs(bars[0]["cx"] - 100) < 5)
 
     # --- detect_entities applies the health_bar shape hint by name ---
-    det = detect_entities(img, {"health_bar": {"hsv_lower": [0, 0, 200],
-                                               "hsv_upper": [179, 30, 255],
-                                               "min_area": 100}})
+    # (bar needs a brawler below it now, so add a player under the bar)
+    cv2.circle(img, (100, 110), 20, (0, 255, 0), -1)  # player under the bar
+    det = detect_entities(img, {
+        "player": {"hsv_lower": [50, 100, 100], "hsv_upper": [70, 255, 255],
+                   "min_area": 100},
+        "health_bar": {"hsv_lower": [0, 0, 200],
+                       "hsv_upper": [179, 30, 255],
+                       "min_area": 100}})
     ok &= check("health_bar shape hint via detect_entities",
                 len(det["health_bar"]) == 1)
+
+    # --- anchor rule: a bar only counts above a brawler ---
+    scene2 = np.zeros((400, 400, 3), dtype=np.uint8)
+    cv2.circle(scene2, (200, 250), 30, (0, 255, 0), -1)      # player brawler
+    cv2.rectangle(scene2, (150, 200), (250, 210), (255, 255, 255), -1)  # bar above him
+    cv2.rectangle(scene2, (300, 100), (360, 108), (255, 255, 255), -1)  # bar on a "bush"
+    ents = {
+        "player": {"hsv_lower": [50, 100, 100], "hsv_upper": [70, 255, 255],
+                   "min_area": 200},
+        "health_bar": {"hsv_lower": [0, 0, 200], "hsv_upper": [179, 30, 255],
+                       "min_area": 50},
+    }
+    det2 = detect_entities(scene2, ents)
+    ok &= check("bar above brawler kept, bar on bush dropped",
+                len(det2["health_bar"]) == 1
+                and abs(det2["health_bar"][0]["cx"] - 200) < 5)
+
+    # opt-out: "above": null disables the anchor check
+    ents["health_bar"]["above"] = None
+    det3 = detect_entities(scene2, ents)
+    ok &= check('"above": null disables anchor check',
+                len(det3["health_bar"]) == 2)
 
     print("ALL TESTS PASSED" if ok else "TESTS FAILED")
     return ok
