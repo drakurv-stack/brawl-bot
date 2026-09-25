@@ -20,8 +20,12 @@ def main():
     entities = cfg["entities"]
 
     cap = ScreenCapture(cfg.get("source", "mss"), cfg.get("region"))
-    cv2.namedWindow("brawl-bot vision (Q to quit)")
-    px, py = preview_position(cap.effective_region, cap.screen_size)
+    pw = 640
+    r = cap.effective_region
+    ph = max(200, int(pw * r["height"] / r["width"])) if r else 360
+    cv2.namedWindow("brawl-bot vision (Q to quit)", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("brawl-bot vision (Q to quit)", pw, ph)
+    px, py = preview_position(cap.effective_region, cap.screen_size, pw, ph)
     cv2.moveWindow("brawl-bot vision (Q to quit)", px, py)
     prev = time.time()
     while True:

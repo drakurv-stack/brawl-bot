@@ -11,14 +11,15 @@ Two sources:
 
 Why not always fullscreen? The preview window lives on the desktop, so a
 fullscreen capture photographs the preview itself -> infinite hall of
-mirrors. Capturing just the emulator rectangle breaks the loop.
+mirrors. Capturing just the emulator rectangle (with the preview parked
+outside it) breaks the loop.
 """
 import subprocess
 
 import cv2
 import numpy as np
 
-from emulator import find_emulator_window
+from emulator import bring_to_front, find_emulator_window
 
 
 def resolve_region(region, source="mss"):
@@ -27,11 +28,18 @@ def resolve_region(region, source="mss"):
     Returns {"left","top","width","height"} or None (fullscreen / N-A).
     """
     if region:  # explicit rectangle in config.json wins
-        return dict(region)
+        r = dict(region)
+        print(f"capturing pinned region ({r['left']},{r['top']}) "
+              f"{r['width']}x{r['height']}")
+        return r
     if source == "mss":
         rect = find_emulator_window()
         if rect:
             left, top, width, height = rect
+            # mss sees the composited desktop: the game must be on top.
+            bring_to_front()
+            print(f"capturing emulator region ({left},{top}) "
+                  f"{width}x{height}")
             return {"left": left, "top": top,
                     "width": width, "height": height}
         print("no emulator window found - capturing the full monitor. "
@@ -39,23 +47,33 @@ def resolve_region(region, source="mss"):
     return None
 
 
-def preview_position(region, screen_size, margin=24):
-    """Top-left corner for an OpenCV window that won't sit inside `region`.
+def preview_position(region, screen_size, pw=640, ph=360, margin=16):
+    """Top-left corner for a pw x ph preview that won't overlap `region`.
 
-    Keeps the preview out of its own screenshot. Falls back to (60, 60)
-    when there's nowhere sensible to put it.
+    Tries right of the region, then left, then below, then above. Falls
+    back to (margin, margin) when the region covers nearly everything.
     """
     if not region or not screen_size:
-        return (60, 60)
+        return (margin, margin)
     sw, sh = screen_size
-    x = region["left"] + region["width"] + margin
-    y = region["top"]
-    if x + 320 > sw:  # no room on the right -> try below the region
-        x = region["left"]
-        y = region["top"] + region["height"] + margin
-        if y + 200 > sh:  # no room below either -> give up gracefully
-            return (60, 60)
-    return (x, y)
+    rl, rt = region["left"], region["top"]
+    rr, rb = rl + region["width"], rt + region["height"]
+    if rr + margin + pw <= sw:      # room on the right
+        return (rr + margin, rt)
+    if rl - margin - pw >= 0:       # room on the left
+        return (rl - margin - pw, rt)
+    if rb + margin + ph <= sh:      # room below
+        return (rl, rb + margin)
+    if rt - margin - ph >= 0:       # room above
+        return (rl, rt - margin - ph)
+    return (margin, margin)
+
+
+def preview_to_frame(x, y, frame_w, frame_h, pw, ph):
+    """Map a click in the downscaled preview back to full-res frame pixels."""
+    fx = min(max(int(x * frame_w / pw), 0), frame_w - 1)
+    fy = min(max(int(y * frame_h / ph), 0), frame_h - 1)
+    return fx, fy
 
 
 class ScreenCapture:
@@ -72,6 +90,16 @@ class ScreenCapture:
             self.screen_size = (mon["width"], mon["height"])
             if self.effective_region:
                 self._monitor.update(self.effective_region)
+                cov = (self.effective_region["width"]
+                       * self.effective_region["height"]) / (mon["width"] * mon["height"])
+                if cov > 0.85:
+                    print("WARNING: capture covers nearly the whole screen - "
+                          "shrink the emulator to a smaller window so the "
+                          "preview fits beside it instead of inside it.")
+            else:
+                print("WARNING: fullscreen capture - the preview window will "
+                      "appear inside its own feed (hall of mirrors). Open the "
+                      "emulator so auto-detect can lock onto it.")
 
     def grab(self):
         """Return the current frame as a BGR numpy array, or None on failure."""

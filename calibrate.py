@@ -10,7 +10,7 @@ import json
 
 import cv2
 
-from capture import ScreenCapture, preview_position
+from capture import ScreenCapture, preview_position, preview_to_frame
 from instance import single_instance
 from vision import sample_hsv_range
 
@@ -26,21 +26,31 @@ def main():
     cap = ScreenCapture(cfg.get("source", "mss"), cfg.get("region"))
     state = {"frame": None}
 
+    # Fixed small preview (aspect-matched): a 1:1 window would be as big as
+    # the capture itself and could never sit outside it.
+    pw = 640
+    r = cap.effective_region
+    ph = max(200, int(pw * r["height"] / r["width"])) if r else 360
+    preview = (pw, ph)
+
     def on_click(event, x, y, flags, _):
         if event != cv2.EVENT_LBUTTONDOWN or state["frame"] is None:
             return
         name = names[selected]
         hsv = cv2.cvtColor(state["frame"], cv2.COLOR_BGR2HSV)
-        lo, hi = sample_hsv_range(hsv, x, y)
+        fh, fw = hsv.shape[:2]
+        fx, fy = preview_to_frame(x, y, fw, fh, pw, ph)
+        lo, hi = sample_hsv_range(hsv, fx, fy)
         entities[name]["hsv_lower"] = lo
         entities[name]["hsv_upper"] = hi
         print(f"[{name}] sampled HSV range {lo} -> {hi}")
 
-    cv2.namedWindow("calibrate")
+    cv2.namedWindow("calibrate", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("calibrate", pw, ph)
     cv2.setMouseCallback("calibrate", on_click)
     # Park the preview outside the captured region so it can't
     # photograph itself (the hall-of-mirrors bug).
-    px, py = preview_position(cap.effective_region, cap.screen_size)
+    px, py = preview_position(cap.effective_region, cap.screen_size, pw, ph)
     cv2.moveWindow("calibrate", px, py)
     print("keys: 1..9 select entity | click samples | s save | ESC quit")
     print("entities:", {i + 1: n for i, n in enumerate(names)})

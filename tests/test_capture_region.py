@@ -1,8 +1,9 @@
-"""Tests for capture region resolution + preview placement.
+"""Tests for capture region resolution, preview placement, click mapping.
 
 Covers the hall-of-mirrors fix: with region=null the camera must lock onto
 the emulator window (not the fullscreen desktop that contains the preview),
-and the preview window must be parked outside the captured rectangle.
+the preview must be a small window parked outside the captured rectangle,
+and clicks in the downscaled preview must map back to frame pixels.
 
 Run:  python tests/test_capture_region.py
 """
@@ -17,12 +18,14 @@ import emulator
 
 def check(name, cond):
     print(f"{'OK ' if cond else 'FAIL'} {name}")
-    return cond
+    return bool(cond)
 
 
 def main():
     ok = True
     real_finder = capture.find_emulator_window
+    real_front = capture.bring_to_front
+    capture.bring_to_front = lambda: True  # don't steal focus in tests
 
     # 1. explicit region in config wins, emulator ignored
     capture.find_emulator_window = lambda: (_ for _ in ()).throw(
@@ -51,6 +54,7 @@ def main():
         ok &= check("no emulator falls back to fullscreen", r is None)
     finally:
         capture.find_emulator_window = real_finder
+    capture.bring_to_front = real_front
 
     # 4. adb source ignores regions entirely
     r = capture.resolve_region(None, source="adb")
@@ -58,29 +62,48 @@ def main():
 
     # 5. preview parks right of the region when there's room
     pos = capture.preview_position(
-        {"left": 0, "top": 0, "width": 960, "height": 540}, (1920, 1080))
-    ok &= check("preview goes right of region", pos == (984, 0))
+        {"left": 0, "top": 0, "width": 960, "height": 540},
+        (1920, 1080), 640, 360)
+    ok &= check("preview goes right of region", pos == (976, 0))
 
-    # 6. region hugging the right edge -> preview goes below it
+    # 6. no room on the right -> preview goes left of region
     pos = capture.preview_position(
-        {"left": 1400, "top": 100, "width": 500, "height": 400}, (1920, 1080))
-    ok &= check("preview goes below region", pos == (1400, 524))
+        {"left": 1400, "top": 100, "width": 500, "height": 400},
+        (1920, 1080), 640, 360)
+    ok &= check("preview goes left of region", pos == (744, 100))
 
-    # 7. fullscreen region (worst case) -> graceful fallback corner
+    # 7. only room below -> preview goes below region
     pos = capture.preview_position(
-        {"left": 0, "top": 0, "width": 1920, "height": 1080}, (1920, 1080))
-    ok &= check("fullscreen region -> fallback corner", pos == (60, 60))
+        {"left": 100, "top": 100, "width": 1500, "height": 400},
+        (1920, 1080), 640, 360)
+    ok &= check("preview goes below region", pos == (100, 516))
 
-    # 8. no region / no screen info -> fallback corner
+    # 8. fullscreen region (worst case) -> graceful fallback corner
+    pos = capture.preview_position(
+        {"left": 0, "top": 0, "width": 1920, "height": 1080},
+        (1920, 1080), 640, 360)
+    ok &= check("fullscreen region -> fallback corner", pos == (16, 16))
+
+    # 9. no region / no screen info -> fallback corner
     ok &= check("missing info -> fallback corner",
-                capture.preview_position(None, None) == (60, 60))
+                capture.preview_position(None, None) == (16, 16))
 
-    # 9. emulator finder is a safe no-op off Windows
+    # 10. click in downscaled preview maps back to frame pixels
+    fx, fy = capture.preview_to_frame(320, 180, 1920, 1080, 640, 360)
+    ok &= check("preview click scales to frame", (fx, fy) == (960, 540))
+    fx, fy = capture.preview_to_frame(700, 400, 1920, 1080, 640, 360)
+    ok &= check("click clamps to frame bounds", (fx, fy) == (1919, 1079))
+    fx, fy = capture.preview_to_frame(-5, -5, 1920, 1080, 640, 360)
+    ok &= check("negative click clamps to zero", (fx, fy) == (0, 0))
+
+    # 11. emulator helpers are safe no-ops off Windows
     if sys.platform != "win32":
         ok &= check("find_emulator_window None off Windows",
                     emulator.find_emulator_window() is None)
+        ok &= check("bring_to_front False off Windows",
+                    emulator.bring_to_front() is False)
     else:
-        print("SKIP find_emulator_window platform check (on Windows)")
+        print("SKIP platform no-op checks (on Windows)")
 
     print("ALL TESTS PASSED" if ok else "TESTS FAILED")
     sys.exit(0 if ok else 1)
