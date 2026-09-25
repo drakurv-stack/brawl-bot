@@ -27,9 +27,13 @@ def hsv_mask(hsv, lower, upper):
 #  - health bars are thin horizontal bars (min_aspect kills round bushes)...
 #  - ...and they always float directly above a brawler ("above" kills bars
 #    sitting on trees, water, and UI — nothing to anchor them).
+#  - enemies are detected by their thin red name tags, so they get a
+#    gentler cleanup kernel (open_ksize 3): the default 5 would erase
+#    thin text strokes as "noise".
 # Set "above": null on the entity to disable the anchor check.
 DEFAULT_SHAPES = {
     "health_bar": {"min_aspect": 2.5, "above": ["player", "enemy"]},
+    "enemy": {"open_ksize": 3},
 }
 
 
@@ -44,12 +48,15 @@ def is_above(box, anchors):
     return False
 
 
-def find_blobs(mask, min_area=200, min_aspect=None, max_aspect=None):
+def find_blobs(mask, min_area=200, min_aspect=None, max_aspect=None,
+               open_ksize=5):
     """Turn a binary mask into a list of boxes, biggest first.
 
     min_aspect/max_aspect filter on width/height (health bars are wide).
+    open_ksize is the morphological cleanup kernel: 5 kills speckle noise
+    but also erases THIN targets (red name tags), so thin entities use 3.
     """
-    kernel = np.ones((5, 5), np.uint8)
+    kernel = np.ones((open_ksize, open_ksize), np.uint8)
     cleaned = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     contours, _ = cv2.findContours(
         cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -78,7 +85,8 @@ def detect_entities(bgr, entities):
     for name, cfg in cfgs.items():
         mask = hsv_mask(hsv, cfg["hsv_lower"], cfg["hsv_upper"])
         out[name] = find_blobs(mask, cfg.get("min_area", 200),
-                               cfg.get("min_aspect"), cfg.get("max_aspect"))
+                               cfg.get("min_aspect"), cfg.get("max_aspect"),
+                               cfg.get("open_ksize", 5))
     # Structural pass: e.g. a health bar must float above a brawler.
     for name, cfg in cfgs.items():
         above = cfg.get("above")
@@ -164,14 +172,17 @@ class Tracker:
         return [dict(t) for t in self._tracks if t["hits"] >= self.min_hits]
 
 
-def sample_hsv_range(hsv, cx, cy, radius=5):
+def sample_hsv_range(hsv, cx, cy, radius=2):
     """Sample a patch around (cx, cy); return (lower, upper) HSV bounds.
 
-    Takes the MEDIAN color, not the mean: up to half the patch can be
-    background (from clicking near an edge) without dragging the range off
-    target. The old mean +/- std version blew up to 'match everything'
-    from a single bad click. Hue wrapping around red (0/179) is
-    represented as lower_h > upper_h, which hsv_mask understands.
+    Takes the MEDIAN color of a SMALL patch (default 5x5), not the mean:
+    up to half the patch can be background (from clicking near an edge)
+    without dragging the range off target. The old mean +/- std version
+    blew up to 'match everything' from a single bad click, and a wide
+    patch around a THIN feature (red name tags) medians out to the
+    background — so the patch stays tight around the click. Hue wrapping
+    around red (0/179) is represented as lower_h > upper_h, which hsv_mask
+    understands.
     """
     h, w = hsv.shape[:2]
     x0, x1 = max(0, cx - radius), min(w, cx + radius + 1)

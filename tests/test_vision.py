@@ -93,6 +93,15 @@ def main():
     ok &= check("red wrap: mask rejects green",
                 hsv_mask(green, lo, hi).mean() < 5)
 
+    # --- sampling: thin feature (red name tag) isn't drowned by background ---
+    tag = np.full((11, 11, 3), (60, 60, 100), dtype=np.uint8)  # dull green bg
+    tag[5:8, 1:10] = (0, 220, 220)  # thin red line, like a name tag
+    lo, hi = sample_hsv_range(tag, 5, 6)  # click the middle of the line
+    ok &= check("thin red line: hue window covers red",
+                lo[0] <= 0 <= hi[0])
+    ok &= check("thin red line: saturation window covers vivid red",
+                lo[1] <= 220 <= hi[1])
+
     # --- aspect filter: health bars are wide, bushes are not ---
     img = np.zeros((200, 400, 3), dtype=np.uint8)
     cv2.rectangle(img, (50, 50), (150, 62), (255, 255, 255), -1)  # bar: 100x12

@@ -54,16 +54,19 @@ to sample its color, `m` toggles a mask view (white = detected — if the
 whole screen goes white, re-click the center of a solid-colored part),
 `s` saves to `config.json`, `ESC` quits.
 
-Sampling takes the **median** color of the clicked patch, so up to half the
-patch can be background without poisoning the range. Two tips from the
-trenches: click the *center* of a solid-colored area, and for enemies
-sample the **red name/health bar above them** (always red) rather than the
-brawler body (every brawler is a different color). Health bars are also
-shape-filtered (wide and short), so bushes stop qualifying — and a bar only
-counts if a brawler is detected right below it (`"above": ["player",
-"enemy"]`, overridable per entity, `null` disables). Color alone can't do
-this: a sunlit bush and a health bar can be the same green, but only one
-has a brawler underneath.
+Sampling takes the **median** color of a small patch around your click, so
+up to half the patch can be background without poisoning the range. Two
+tips from the trenches: click the *center* of a solid-colored area, and
+for enemies sample the **red name/health bar above them** (always red)
+rather than the brawler body (every brawler is a different color) — click
+the middle of the red text itself. Enemies also get a gentler
+noise-cleanup (`"open_ksize": 3` instead of 5) so thin red strokes survive
+being mistaken for speckle; tune it per entity in config.json. Health bars
+are also shape-filtered (wide and short), so bushes stop qualifying — and
+a bar only counts if a brawler is detected right below it (`"above":
+["player", "enemy"]`, overridable per entity, `null` disables). Color
+alone can't do this: a sunlit bush and a health bar can be the same green,
+but only one has a brawler underneath.
 
 Capture notes: with `"region": null` (default) the camera auto-detects your
 emulator window (LDPlayer / BlueStacks / Nox) and captures *only* that —
