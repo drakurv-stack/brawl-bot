@@ -23,6 +23,11 @@ def single_instance(name):
             os.write(fd, b"x")  # msvcrt needs at least 1 byte to lock
     except OSError:
         pass
+    # msvcrt.locking() locks relative to the CURRENT file position, and the
+    # file creator sits at position 1 (after writing) while later openers
+    # sit at position 0. Seek first or every process locks a different byte
+    # and the guard silently does nothing on Windows.
+    os.lseek(fd, 0, os.SEEK_SET)
     try:
         if sys.platform == "win32":
             import msvcrt
